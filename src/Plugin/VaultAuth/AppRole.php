@@ -6,48 +6,78 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\vault\Plugin\VaultAuthBase;
 use Drupal\vault\Plugin\VaultPluginFormInterface;
-use Vault\AuthenticationStrategies\TokenAuthenticationStrategy;
+use Vault\AuthenticationStrategies\AppRoleAuthenticationStrategy;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Provides a token-based authentication strategy for the vault client.
+ * Provides a approle-based authentication strategy for the vault client.
  *
  * @VaultAuth(
- *   id = "token",
- *   label = "Vault Token",
- *   description = @Translation("This authentication strategy uses a static token."),
+ *   id = "approle",
+ *   label = "AppRole",
+ *   description = @Translation("This authentication strategy uses an approle id and secret."),
  * )
  */
-class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, VaultPluginFormInterface {
+class AppRole extends VaultAuthBase implements ContainerFactoryPluginInterface, VaultPluginFormInterface {
 
   /**
-   * The token used to authenticate against Vault.
+   * The AppRole role ID.
    *
    * @var string
    */
-  protected $token;
+  protected $roleId;
 
   /**
-   * Sets $token property.
+   * The AppRole role secret.
    *
-   * @var string $token
+   * @var string
+   */
+  protected $secretId;
+
+  /**
+   * Sets $roleId property.
+   *
+   * @var string $roleId
    *
    * @return self
    *   Current object.
    */
-  public function setToken(string $token) {
-    $this->token = $token;
+  public function setRoleId(string $roleId) {
+    $this->roleId = $roleId;
     return $this;
   }
 
   /**
-   * Gets $token property.
+   * Gets $roleId property.
    *
    * @return string
-   *   Authentication token.
+   *   AppRole ID.
    */
-  public function getToken() {
-    return $this->token;
+  public function getRoleId() {
+    return $this->roleId;
+  }
+
+  /**
+   * Sets $secretId property.
+   *
+   * @var string $secretId
+   *
+   * @return self
+   *   Current object.
+   */
+  public function setSecretId(string $secretId) {
+    $this->secretId = $secretId;
+    return $this;
+  }
+
+  /**
+   * Gets $secretId property.
+   *
+   * @return string
+   *   AppRole secret.
+   */
+  public function getSecretId() {
+    return $this->secretId;
   }
 
   /**
@@ -58,9 +88,12 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
 
     $config = $instance->getConfigFactory()->get('vault_auth_approle.settings');
-    if ($key_id = $config->get('token_key_id')) {
-      $token = \Drupal::service('key.repository')->getKey($key_id)->getKeyValue();
-      $instance->setToken($token);
+    if ($role_id = $config->get('role_id')) {
+      $instance->setRoleId($role_id);
+    }
+    if ($secret_key_id = $config->get('secret_key_id')) {
+      $secret = \Drupal::service('key.repository')->getKey($secret_key_id)->getKeyValue();
+      $instance->setSecretId($secret);
     }
 
     return $instance;
@@ -70,7 +103,7 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
    * {@inheritdoc}
    */
   public function getAuthenticationStrategy() {
-    $authStrategy = new TokenAuthenticationStrategy($this->getToken());
+    $authStrategy = new AppRoleAuthenticationStrategy($this->getRoleId(), $this->getSecretId());
     return $authStrategy;
   }
 
@@ -79,11 +112,16 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $config = $this->getConfiguration();
-    $form['token_key_id'] = [
+    $form['role_id'] = [
+      '#type' => 'textfield',
+      '#title' => \Drupal::translation()->translate('AppRole ID'),
+      '#default_value' => $config['role_id'],
+    ];
+    $form['secret_key_id'] = [
       '#type' => 'key_select',
-      '#title' => \Drupal::translation()->translate('Vault Token'),
+      '#title' => \Drupal::translation()->translate('AppRole Secret'),
       '#key_filters' => ['type' => 'authentication'],
-      '#default_value' => $config['token_key_id'],
+      '#default_value' => $config['secret_key_id'],
     ];
 
     return $form;
@@ -111,7 +149,8 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
     $config = $this->getConfigFactory()->getEditable('vault_auth_approle.settings');
 
     return [
-      'token_key_id' => $config->get('token_key_id'),
+      'role_id' => $config->get('role_id'),
+      'secret_key_id' => $config->get('secret_key_id'),
     ];
   }
 
@@ -121,7 +160,8 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
   public function setConfiguration(array $configuration) {
     $config = $this->getConfigFactory()->getEditable('vault_auth_approle.settings');
     $config
-      ->set('token_key_id', $configuration['token_key_id'])
+      ->set('role_id', $configuration['role_id'])
+      ->set('secret_key_id', $configuration['secret_key_id'])
       ->save();
   }
 
@@ -130,7 +170,8 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
    */
   public function defaultConfiguration() {
     return [
-      'token_key_id' => NULL,
+      'role_id' => NULL,
+      'secret_key_id' => NULL,
     ];
   }
 
