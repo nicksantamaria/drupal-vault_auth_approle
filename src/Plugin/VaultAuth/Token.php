@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\vault_auth_token\Plugin\VaultAuth;
+namespace Drupal\vault_auth_approle\Plugin\VaultAuth;
 
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -57,7 +57,7 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
     /** @var self $instance */
     $instance = parent::create($container, $configuration, $plugin_id, $plugin_definition);
 
-    $config = $instance->getConfigFactory()->get('vault_auth_token.settings');
+    $config = $instance->getConfigFactory()->get('vault_auth_approle.settings');
     if ($key_id = $config->get('token_key_id')) {
       $token = \Drupal::service('key.repository')->getKey($key_id)->getKeyValue();
       $instance->setToken($token);
@@ -108,7 +108,7 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
    * {@inheritdoc}
    */
   public function getConfiguration() {
-    $config = $this->getConfigFactory()->getEditable('vault_auth_token.settings');
+    $config = $this->getConfigFactory()->getEditable('vault_auth_approle.settings');
 
     return [
       'token_key_id' => $config->get('token_key_id'),
@@ -119,7 +119,7 @@ class Token extends VaultAuthBase implements ContainerFactoryPluginInterface, Va
    * {@inheritdoc}
    */
   public function setConfiguration(array $configuration) {
-    $config = $this->getConfigFactory()->getEditable('vault_auth_token.settings');
+    $config = $this->getConfigFactory()->getEditable('vault_auth_approle.settings');
     $config
       ->set('token_key_id', $configuration['token_key_id'])
       ->save();
